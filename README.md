@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-  用 Node.js 重构的电话手表家长客户端<br>
+  用 Node.js 重构的电话手表家长客户端(项目原作者laolibuhuifei）<br>
   账号 CLI + WebUI 单页面板 · 主页仪表盘（CPU/内存实时监控 + 每日一言） · OneBot v11 桥接（HTTP / WS / 反向 WS，含 QQ 兼容层） · 型号能力门控 · 后台消息监听 · 自动同意好友申请 · AI 自动回复
 </p>
 
@@ -139,10 +139,7 @@ JZClientForNode/
 
 ## 安装
 
-```bash
-git clone https://github.com/laolibuhuifei/JZclient-for-node.git JZClientForNode
-cd JZClientForNode
-```
+从该项目的release中下载压缩包，解压即可运行
 
 ## 配置
 
