@@ -1,0 +1,42 @@
+{
+  "id": "tp-images",
+  "name": "图片速递",
+  "version": "2.0.0",
+  "author": "赵小黑日记",
+  "description": "聊天里发 /tp 列出指定目录的图片并编号，/tp 3 把第 3 张发到手表，/tp down 翻页，/tp dir 换目录。自包含：不需要另装索引服务，解压即用。",
+  "homepage": "",
+  "main": "main.js",
+  "cover": "cover.png",
+  "icon": "camera",
+  "permissions": ["chat.send"],
+  "config": [
+    {
+      "key": "pageSize",
+      "label": "列表显示条数",
+      "type": "number",
+      "default": 15,
+      "hint": "手表屏幕小，太多翻不动"
+    },
+    {
+      "key": "holdMinutes",
+      "label": "编号有效时长(分钟)",
+      "type": "number",
+      "default": 10,
+      "hint": "超时后 /tp 3 会重新扫一次清单，编号可能变"
+    },
+    {
+      "key": "depth",
+      "label": "包含子目录层数",
+      "type": "number",
+      "default": 0,
+      "hint": "0 = 只看该目录，1 = 再往下看一层，最大 3"
+    },
+    {
+      "key": "enabled",
+      "label": "启用",
+      "type": "boolean",
+      "default": true
+    }
+  ],
+  "ui": { "title": "图片速递", "entry": "ui/index.html" }
+}

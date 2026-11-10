@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>一键禁用</title>
+<style>
+  :root { --bg:#fff; --text:#1a1a1a; --muted:#6b7280; --card:#f5f6f8; --line:#e5e7eb; --accent:#2563eb; --warn:#e24b4a; --ok:#12805c; }
+  [data-theme="dark"] { --bg:#16181d; --text:#e6e8ee; --muted:#8b93a7; --card:#20242c; --line:#2c313b; --accent:#5b8def; --warn:#ff6b6a; --ok:#3ec98a; }
+  * { box-sizing:border-box; }
+  body { margin:0; padding:16px; background:var(--bg); color:var(--text);
+         font:14px/1.6 -apple-system,"PingFang SC","Microsoft YaHei",sans-serif; }
+  .bar { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:14px; }
+  .bar h1 { font-size:15px; font-weight:500; margin:0 auto 0 0; }
+  select { font:inherit; font-size:13px; padding:5px 9px; border-radius:8px;
+           border:1px solid var(--line); background:var(--card); color:var(--text); max-width:180px; }
+  button { font:inherit; font-size:13px; padding:6px 14px; border-radius:8px; cursor:pointer;
+           border:1px solid var(--line); background:var(--card); color:var(--text); }
+  button:hover { border-color:var(--accent); color:var(--accent); }
+  button:disabled { opacity:.5; cursor:default; }
+  .card { border:1px solid var(--line); border-radius:12px; padding:14px 16px; margin-bottom:12px; background:var(--bg); }
+  .hd { display:flex; align-items:center; gap:10px; }
+  .hd .t { font-size:14px; font-weight:500; margin-right:auto; }
+  .state { font-size:12px; padding:2px 9px; border-radius:999px; border:1px solid var(--line); color:var(--muted); }
+  .state.on { color:var(--ok); border-color:var(--ok); }
+  .state.part { color:var(--accent); border-color:var(--accent); }
+  .sub { font-size:12px; color:var(--muted); margin-top:8px; word-break:break-all; }
+  .sw { position:relative; width:42px; height:24px; flex:0 0 auto; }
+  .sw input { position:absolute; opacity:0; width:100%; height:100%; margin:0; cursor:pointer; z-index:2; }
+  .sw i { display:block; width:42px; height:24px; border-radius:999px; background:var(--line); transition:.18s; }
+  .sw i::after { content:''; position:absolute; top:3px; left:3px; width:18px; height:18px; border-radius:50%;
+                 background:#fff; transition:.18s; box-shadow:0 1px 2px rgba(0,0,0,.2); }
+  .sw input:checked + i { background:var(--accent); }
+  .sw input:checked + i::after { transform:translateX(18px); }
+  .sw input:disabled + i { opacity:.45; }
+  .tip { background:var(--card); border-left:3px solid var(--accent); border-radius:8px;
+         padding:10px 12px; font-size:13px; color:var(--muted); }
+  .tip b { color:var(--text); font-weight:500; font-family:ui-monospace,Consolas,monospace; }
+  .err { color:var(--warn); font-size:13px; padding:12px; background:var(--card); border-radius:8px; }
+  .toast { position:fixed; left:50%; bottom:20px; transform:translateX(-50%); background:var(--text); color:var(--bg);
+           font-size:13px; padding:8px 16px; border-radius:999px; opacity:0; transition:.2s; pointer-events:none; }
+  .toast.show { opacity:1; }
+</style>
+</head>
+<body>
+<div class="bar">
+  <h1>一键禁用</h1>
+  <select id="watch"></select>
+  <button id="refresh">刷新</button>
+</div>
+
+<div class="card">
+  <div class="hd">
+    <span class="t">上课禁用</span>
+    <span class="state" id="cs">-</span>
+    <label class="sw"><input type="checkbox" id="csw" disabled><i></i></label>
+  </div>
+  <div class="sub" id="cp">读取中…</div>
+</div>
+
+<div class="card">
+  <div class="hd">
+    <span class="t">睡眠禁用</span>
+    <span class="state" id="ss">-</span>
+    <label class="sw"><input type="checkbox" id="ssw" disabled><i></i></label>
+  </div>
+  <div class="sub" id="sp">读取中…</div>
+</div>
+
+<div class="tip">
+  手表里发 <b>/lock</b> 看状态，<b>/lock c</b> 切上课、<b>/lock s</b> 切睡眠，<b>/lock on</b> / <b>/lock off</b> 一键全开全关。
+  这里的开关和手表指令是同一套接口，改完立刻生效。
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+var P = window.JZ_PLUGIN || { id: 'lock-mode', api: '/api/plugin/lock-mode/api' };
+var $ = function (s) { return document.querySelector(s); };
+var busy = false;
+
+function esc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) {
+    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
+  });
+}
+
+function api(path, opts) {
+  return fetch(P.api + path, opts).then(function (r) {
+    return r.json().then(function (d) {
+      if (!r.ok || !d || d.ok === false) throw new Error((d && d.error) || ('HTTP ' + r.status));
+      return d;
+    });
+  });
+}
+
+function toast(msg) {
+  var t = $('#toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toast._t);
+  toast._t = setTimeout(function () { t.classList.remove('show'); }, 2000);
+}
+
+function setState(el, text, cls) {
+  el.textContent = text;
+  el.className = 'state' + (cls ? ' ' + cls : '');
+}
+
+function render(d) {
+  var sel = $('#watch');
+  if (sel.options.length !== d.watches.length || (sel.options[0] && sel.options[0].value !== d.watches[0].watchId)) {
+    sel.innerHTML = d.watches.map(function (w) {
+      return '<option value="' + esc(w.watchId) + '">' + esc(w.name || w.watchId.slice(0, 6))
+        + (w.model ? ' ' + esc(w.model) : '') + '</option>';
+    }).join('');
+  }
+  sel.value = d.active;
+
+  var c = d.classMode || {};
+  var csw = $('#csw');
+  if (c.error) {
+    setState($('#cs'), '读不到', '');
+    $('#cp').textContent = c.error;
+    csw.checked = false; csw.disabled = true;
+  } else if (!c.total) {
+    setState($('#cs'), '未配置', '');
+    $('#cp').textContent = '这块表还没有上课禁用时段，先在 App 里加一个';
+    csw.checked = false; csw.disabled = true;
+  } else {
+    setState($('#cs'), c.all ? '开' : (c.any ? '部分开' : '关'), c.all ? 'on' : (c.any ? 'part' : ''));
+    $('#cp').textContent = c.periods || '未设置时段';
+    csw.checked = c.all; csw.disabled = false;
+  }
+
+  var s = d.sleepMode || {};
+  var ssw = $('#ssw');
+  if (s.error) {
+    setState($('#ss'), '读不到', '');
+    $('#sp').textContent = s.error;
+    ssw.checked = false; ssw.disabled = true;
+  } else if (!s.total) {
+    setState($('#ss'), '未配置', '');
+    $('#sp').textContent = '这块表还没有睡眠时段，先在 App 里加一个';
+    ssw.checked = false; ssw.disabled = true;
+  } else {
+    setState($('#ss'), s.on + '/' + s.total + ' 段开', s.all ? 'on' : (s.any ? 'part' : ''));
+    $('#sp').textContent = s.periods || '未设置时段';
+    ssw.checked = s.all; ssw.disabled = false;
+  }
+}
+
+function load() {
+  $('#watch').disabled = true;
+  return api('/state')
+    .then(render)
+    .catch(function (e) {
+      setState($('#cs'), '失败', '');
+      setState($('#ss'), '失败', '');
+      $('#cp').textContent = e.message;
+      $('#sp').textContent = '检查主程序是否在运行、插件是否已启用';
+    })
+    .then(function () { $('#watch').disabled = false; });
+}
+
+function toggle(target, on, input) {
+  if (busy) return;
+  busy = true;
+  input.disabled = true;
+  api('/toggle', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ target: target, on: on }),
+  })
+    .then(function (r) {
+      toast((target === 'class' ? '上课禁用' : '睡眠禁用') + (on ? ' 已开启' : ' 已关闭'));
+      return load();
+    })
+    .catch(function (e) {
+      toast(e.message);
+      input.checked = !on;
+    })
+    .then(function () { busy = false; input.disabled = false; });
+}
+
+$('#csw').addEventListener('change', function () { toggle('class', this.checked, this); });
+$('#ssw').addEventListener('change', function () { toggle('sleep', this.checked, this); });
+$('#refresh').addEventListener('click', function () { load(); });
+$('#watch').addEventListener('change', function () {
+  var sel = this;
+  api('/watch', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ watchId: sel.value }),
+  }).then(function () { return load(); }).catch(function (e) { toast(e.message); });
+});
+
+// 高度上报，宿主会撑开 iframe
+function reportHeight() {
+  var h = document.body.scrollHeight;
+  if (window.parent && h) window.parent.postMessage({ __jzPluginHeight: h }, '*');
+}
+window.addEventListener('load', function () { load().then(reportHeight); });
+new ResizeObserver(reportHeight).observe(document.body);
+</script>
+</body>
+</html>

@@ -1,0 +1,326 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>图片速递</title>
+<style>
+  :root { --bg:#fff; --text:#1a1a1a; --muted:#6b7280; --card:#f5f6f8; --line:#e5e7eb; --accent:#2563eb; --warn:#e24b4a; }
+  [data-theme="dark"] { --bg:#16181d; --text:#e6e8ee; --muted:#8b93a7; --card:#20242c; --line:#2c313b; --accent:#5b8def; --warn:#ff6b6a; }
+  * { box-sizing:border-box; }
+  body { margin:0; padding:16px; background:var(--bg); color:var(--text);
+         font:14px/1.6 -apple-system,"PingFang SC","Microsoft YaHei",sans-serif; }
+  .bar { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:12px; }
+  .bar h1 { font-size:15px; font-weight:500; margin:0 auto 0 0; }
+  .meta { color:var(--muted); font-size:12px; }
+  button { font:inherit; font-size:13px; padding:6px 14px; border-radius:8px; cursor:pointer;
+           border:1px solid var(--line); background:var(--card); color:var(--text); }
+  button:hover { border-color:var(--accent); color:var(--accent); }
+  button.primary { border-color:var(--accent); color:#fff; background:var(--accent); }
+  button.primary:hover { color:#fff; opacity:.9; }
+  button.tiny { padding:3px 9px; font-size:12px; border-radius:6px; }
+  .tip { background:var(--card); border-left:3px solid var(--accent); border-radius:8px;
+         padding:10px 12px; margin-bottom:12px; font-size:13px; color:var(--muted); }
+  .tip b { color:var(--text); font-weight:500; }
+  .dirbar { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:12px; }
+  .chip { display:inline-flex; align-items:center; gap:6px; font-size:12px; padding:3px 8px 3px 10px;
+          border:1px solid var(--line); border-radius:999px; background:var(--card); max-width:100%; }
+  .chip span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .chip b { font-weight:400; color:var(--muted); }
+  .chip .x { cursor:pointer; color:var(--muted); padding:0 2px; font-size:14px; line-height:1; }
+  .chip .x:hover { color:var(--warn); }
+  .picker { border:1px solid var(--line); border-radius:12px; padding:12px; margin-bottom:14px; background:var(--bg); }
+  .crumb { font-size:12px; color:var(--muted); margin-bottom:10px; word-break:break-all; }
+  .crumb b { color:var(--text); font-weight:500; }
+  .ents { max-height:260px; overflow:auto; margin:8px 0 12px; border-top:1px solid var(--line); }
+  .ent { display:flex; align-items:center; gap:10px; padding:8px 6px; border-bottom:1px solid var(--line); }
+  .ent .nm { flex:1 1 auto; min-width:0; font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; cursor:pointer; }
+  .ent .nm:hover { color:var(--accent); }
+  .ent .cnt { font-size:12px; color:var(--muted); flex:0 0 auto; }
+  .row { display:flex; align-items:center; gap:12px; padding:10px; border-radius:10px;
+         background:var(--card); margin-bottom:8px; }
+  .idx { width:26px; text-align:right; color:var(--muted); font-variant-numeric:tabular-nums; }
+  .thumb { width:56px; height:56px; border-radius:8px; object-fit:cover; background:var(--line); flex:0 0 auto; }
+  .info { min-width:0; flex:1 1 auto; }
+  .name { font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .sub { font-size:12px; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .cmd { font-family:ui-monospace,Consolas,monospace; font-size:12px; color:var(--accent);
+         background:transparent; border:1px solid var(--line); padding:3px 8px; border-radius:6px; flex:0 0 auto; }
+  .empty { color:var(--muted); text-align:center; padding:24px 0; font-size:13px; }
+  .err { color:var(--warn); font-size:13px; padding:12px; background:var(--card); border-radius:8px; }
+  .hint { font-size:12px; color:var(--muted); }
+</style>
+</head>
+<body>
+<div class="bar">
+  <h1>图片速递</h1>
+  <span class="meta" id="meta">读取中…</span>
+  <button id="pick">选择目录</button>
+  <button id="refresh">刷新</button>
+</div>
+
+<div class="dirbar" id="dirbar"></div>
+
+<div class="picker" id="picker" hidden>
+  <div class="crumb" id="crumb"></div>
+  <div id="quick"></div>
+  <div class="ents" id="ents"></div>
+  <div class="bar" style="margin:0">
+    <button class="primary" id="choose">就用这个目录</button>
+    <button id="add">追加到列表</button>
+    <button id="upper">上一层</button>
+    <button id="cancel">取消</button>
+    <span class="hint" id="pickHint"></span>
+  </div>
+</div>
+
+<div class="tip">
+  手表里发 <b>/tp</b> 拿第一屏，<b>/tp down</b> 下一屏、<b>/tp up</b> 上一屏，
+  <b>/tp 3</b> 发第 3 张（编号全清单连续，翻页也能直接发），<b>/tp dir</b> 换目录，<b>/tp ..</b> 回上一层。
+  下面表里的编号和手表看到的完全一致（新的在前）。
+  插件自己读本机目录，不需要另装索引服务。
+</div>
+
+<div id="list"><div class="empty">读取中…</div></div>
+
+<script>
+var P = window.JZ_PLUGIN || { id: 'tp-images', api: '/api/plugin/tp-images/api' };
+var $ = function (s) { return document.querySelector(s); };
+
+var current = { dirs: [], auto: true, presets: [] };  // 服务端当前选中的目录
+var view = '';                                        // 选择器正在浏览的目录（空 = 盘符/快捷位置）
+
+function esc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) {
+    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
+  });
+}
+function size(n) {
+  n = Number(n) || 0;
+  if (n >= 1048576) return (n / 1048576).toFixed(1) + ' MB';
+  if (n >= 1024) return Math.round(n / 1024) + ' KB';
+  return n + ' B';
+}
+function time(ms) {
+  var d = new Date(Number(ms) || 0);
+  if (isNaN(d.getTime())) return '';
+  var p = function (x) { return x < 10 ? '0' + x : x; };
+  return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate())
+    + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
+}
+
+function api(path, opts) {
+  return fetch(P.api + path, opts).then(function (r) {
+    return r.json().then(function (d) {
+      if (!r.ok || !d || d.ok === false) throw new Error((d && d.error) || ('HTTP ' + r.status));
+      return d;
+    });
+  });
+}
+
+// ---------- 目录条 ----------
+function renderDirs() {
+  var box = $('#dirbar');
+  if (!current.dirs || !current.dirs.length) {
+    box.innerHTML = '<span class="hint">没找到可用目录，点「选择目录」挑一个</span>';
+    return;
+  }
+  var html = '<span class="hint">当前：</span>';
+  current.dirs.forEach(function (d) {
+    html += '<span class="chip" title="' + esc(d) + '"><span>' + esc(d) + '</span>'
+      + '<b class="x" data-drop="' + esc(d) + '">×</b></span>';
+  });
+  if (current.auto) html += '<span class="hint">（自动探测的桌面）</span>';
+  box.innerHTML = html;
+}
+
+// ---------- 图片列表 ----------
+var shown = { files: [], total: 0, dirs: [] };
+
+function render(append) {
+  var files = shown.files;
+  $('#meta').textContent = '共 ' + shown.total + ' 张 · '
+    + ((shown.dirs || []).length ? shown.dirs.join(' + ') : '未设置目录');
+  if (!files.length) {
+    $('#list').innerHTML = '<div class="empty">这个目录里没找到图片（只认 png / jpg / jpeg / gif / webp）</div>';
+    return;
+  }
+  var html = '';
+  files.forEach(function (f, i) {
+    html += '<div class="row">'
+      + '<div class="idx">' + (i + 1) + '</div>'
+      + '<img class="thumb" loading="lazy" src="' + esc(f.thumb) + '" alt=""'
+      + ' onerror="this.style.visibility=\'hidden\'">'
+      + '<div class="info"><div class="name">' + esc(f.name) + '</div>'
+      + '<div class="sub">' + size(f.size) + ' · ' + time(f.mtime) + '</div></div>'
+      + '<button class="cmd" data-n="' + (i + 1) + '">/tp ' + (i + 1) + '</button>'
+      + '</div>';
+  });
+  if (files.length < shown.total) {
+    html += '<div style="text-align:center;margin:12px 0 4px">'
+      + '<button data-more="1">加载更多（已显示 ' + files.length + ' / ' + shown.total + '）</button></div>';
+  }
+  $('#list').innerHTML = html;
+}
+
+function loadList(refresh) {
+  $('#meta').textContent = '读取中…';
+  api('/status?limit=80' + (refresh ? '&refresh=1' : ''))
+    .then(function (d) {
+      current.dirs = d.dirs || [];
+      if (view === '' && current.dirs.length) view = current.dirs[0];
+      renderDirs();
+      shown = { files: d.files || [], total: d.total || 0, dirs: d.dirs || [] };
+      render();
+    })
+    .catch(function (e) {
+      $('#list').innerHTML = '<div class="err">读取失败：' + esc(e.message)
+        + '<br>如果提示「本机文件访问不可用」，说明当前程序版本限制了插件读盘，'
+        + '可改用 1.2.0 + tools/img-index.js 的旧方案。</div>';
+      $('#meta').textContent = '';
+    });
+}
+
+function loadMore() {
+  var btn = $('#list').querySelector('[data-more]');
+  if (btn) { btn.disabled = true; btn.textContent = '读取中…'; }
+  api('/status?limit=80&offset=' + shown.files.length)
+    .then(function (d) {
+      shown.files = shown.files.concat(d.files || []);
+      shown.total = d.total || shown.total;
+      render();
+    })
+    .catch(function (e) {
+      if (btn) { btn.disabled = false; btn.textContent = '加载失败，点我重试'; }
+    });
+}
+
+function loadDirs() {
+  return api('/dirs').then(function (d) {
+    current.dirs = d.dirs || [];
+    current.auto = !!d.auto;
+    current.presets = d.presets || [];
+    current.roots = d.roots || [];
+    if (view === '' && current.dirs.length) view = current.dirs[0];
+    renderDirs();
+    return d;
+  });
+}
+
+// ---------- 目录选择器 ----------
+function openPicker() {
+  $('#picker').hidden = false;
+  if (!view) view = (current.dirs && current.dirs[0]) || '';
+  browseTo(view);
+}
+
+function closePicker() {
+  $('#picker').hidden = true;
+}
+
+function browseTo(p) {
+  $('#ents').innerHTML = '<div class="empty">读取中…</div>';
+  api('/browse' + (p ? '?path=' + encodeURIComponent(p) : ''))
+    .then(function (d) {
+      view = d.path || '';
+      var html = '<span class="hint">位置：</span><b>' + esc(view || '（选一个盘或快捷位置）') + '</b>';
+      $('#crumb').innerHTML = html;
+
+      var quick = '';
+      (d.presets || []).forEach(function (x) {
+        quick += '<button class="tiny" data-go="' + esc(x.path) + '" style="margin:0 6px 6px 0">' + esc(x.label) + '</button>';
+      });
+      (d.roots || []).forEach(function (x) {
+        quick += '<button class="tiny" data-go="' + esc(x.path) + '" style="margin:0 6px 6px 0">' + esc(x.label) + '</button>';
+      });
+      $('#quick').innerHTML = quick ? '<div style="margin-bottom:8px">' + quick + '</div>' : '';
+
+      var rows = '';
+      (d.entries || []).forEach(function (e) {
+        rows += '<div class="ent">'
+          + '<span class="nm" data-go="' + esc(e.path) + '">📁 ' + esc(e.name) + '</span>'
+          + '<span class="cnt">' + (e.images == null ? '' : e.images + ' 张图') + '</span>'
+          + '<button class="tiny" data-pick="' + esc(e.path) + '">选它</button>'
+          + '</div>';
+      });
+      $('#ents').innerHTML = rows || '<div class="empty">这里没有子目录</div>';
+      $('#pickHint').textContent = view ? '' : '先选一个盘或快捷位置';
+      $('#choose').disabled = !view;
+      $('#add').disabled = !view;
+      $('#upper').disabled = !d.parent;
+      $('#upper').dataset.go = d.parent || '';
+    })
+    .catch(function (e) {
+      $('#ents').innerHTML = '<div class="err">打不开：' + esc(e.message) + '</div>';
+    });
+}
+
+function saveDirs(list) {
+  return api('/dirs', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ dirs: list })
+  }).then(function (d) {
+    current.dirs = d.dirs || [];
+    current.auto = !!d.auto;
+    renderDirs();
+    closePicker();
+    loadList(true);
+    return d;
+  }).catch(function (e) {
+    $('#pickHint').textContent = '保存失败：' + e.message;
+  });
+}
+
+// ---------- 事件 ----------
+$('#pick').addEventListener('click', function () {
+  if ($('#picker').hidden) openPicker(); else closePicker();
+});
+$('#refresh').addEventListener('click', function () { loadDirs().then(function () { loadList(true); }); });
+$('#cancel').addEventListener('click', closePicker);
+$('#choose').addEventListener('click', function () { if (view) saveDirs([view]); });
+$('#add').addEventListener('click', function () {
+  if (!view) return;
+  var list = current.dirs.slice();
+  if (!list.some(function (x) { return x.toLowerCase() === view.toLowerCase(); })) list.push(view);
+  saveDirs(list);
+});
+$('#upper').addEventListener('click', function () {
+  var p = $('#upper').dataset.go;
+  if (p) browseTo(p);
+});
+
+document.addEventListener('click', function (e) {
+  if (e.target.closest('[data-more]')) { loadMore(); return; }
+
+  var go = e.target.closest('[data-go]');
+  if (go && !go.disabled) { browseTo(go.dataset.go); return; }
+
+  var pick = e.target.closest('[data-pick]');
+  if (pick) { saveDirs([pick.dataset.pick]); return; }
+
+  var drop = e.target.closest('[data-drop]');
+  if (drop) {
+    var target = drop.dataset.drop;
+    var list = current.dirs.filter(function (x) { return x.toLowerCase() !== target.toLowerCase(); });
+    saveDirs(list);
+    return;
+  }
+
+  var b = e.target.closest('.cmd');
+  if (b) {
+    var txt = '/tp ' + b.dataset.n;
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(txt).then(function () {
+        var old = b.textContent;
+        b.textContent = '已复制';
+        setTimeout(function () { b.textContent = old; }, 1200);
+      });
+    }
+  }
+});
+
+loadDirs().catch(function () { /* loadList 里会报错 */ }).then(function () { loadList(false); });
+</script>
+</body>
+</html>

@@ -1,0 +1,28 @@
+{
+  "id": "lock-mode",
+  "name": "一键禁用",
+  "version": "1.0.0",
+  "author": "赵小黑日记",
+  "description": "聊天里发 /lock 查看并切换上课禁用、睡眠禁用，不用打开 App。支持多块手表切换，写操作在后台执行不会超时。",
+  "homepage": "",
+  "main": "main.js",
+  "cover": "cover.png",
+  "icon": "bell",
+  "permissions": ["chat.send", "watch.read", "watch.write"],
+  "config": [
+    {
+      "key": "watchId",
+      "label": "指定手表 ID",
+      "type": "string",
+      "default": "",
+      "hint": "留空 = 用 /lock w 选中的那块；填了就固定这块"
+    },
+    {
+      "key": "enabled",
+      "label": "启用",
+      "type": "boolean",
+      "default": true
+    }
+  ],
+  "ui": { "title": "一键禁用", "entry": "ui/index.html" }
+}
